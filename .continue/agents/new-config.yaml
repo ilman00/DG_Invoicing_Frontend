@@ -1,0 +1,15 @@
+# This is an example configuration file
+# To learn more, see the full config.yaml reference: https://docs.continue.dev/reference
+
+name: Example Config
+version: 1.0.0
+schema: v1
+
+models:
+  - name: llama3-local
+    provider: ollama
+    model: llama3
+
+  - name: fast-phi3
+    provider: ollama
+    model: phi3
