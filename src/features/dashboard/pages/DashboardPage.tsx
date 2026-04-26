@@ -1,4 +1,82 @@
 import { useState } from "react";
+import { DonutChart } from "../components/DonutChart";
+
+type Lang = "en" | "ar";
+type StatusKey = "paid" | "sent" | "draft" | "overdue";
+
+type BaseTranslation = {
+  dir: "ltr" | "rtl";
+
+  dashboard: string;
+  overview: string;
+  totalRevenue: string;
+  totalInvoices: string;
+  totalPayments: string;
+  totalCustomers: string;
+  totalItems: string;
+  outstanding: string;
+  overdue: string;
+  paidInvoices: string;
+  recentPayments: string;
+  invoiceStatus: string;
+  topItems: string;
+
+  draft: string;
+  sent: string;
+  paid: string;
+  overdueLabel: string;
+
+  searchPlaceholder: string;
+  viewAll: string;
+  thisMonth: string;
+  allTime: string;
+
+  nav: {
+    dashboard: string;
+    invoices: string;
+    customers: string;
+    items: string;
+    payments: string;
+    settings: string;
+  };
+
+  greeting: string;
+  subtitle: string;
+
+  paymentDate: string;
+  amount: string;
+  invoice: string;
+  customer: string;
+  method: string;
+  sar: string;
+};
+
+type StatusTranslations = {
+  [K in StatusKey]: string;
+};
+
+export type Translation = BaseTranslation & StatusTranslations;
+
+export type InvoiceStatusItem = {
+  status: StatusKey;
+  count: number;
+  amount: number;
+};
+
+type Payment = {
+  id: string;
+  customer: string;
+  amount: number;
+  date: string;
+  method: "bank_transfer" | "card" | "cheque" | "cash" | "other";
+};
+
+export type TopItem = {
+  name: string;
+  name_ar: string;
+  revenue: number;
+  count: number;
+};
 
 const translations = {
   en: {
@@ -81,7 +159,7 @@ const translations = {
     method: "الطريقة",
     sar: "ر.س",
   },
-};
+} as const;
 
 const mockData = {
   stats: {
@@ -99,94 +177,45 @@ const mockData = {
     { status: "sent", count: 32, amount: 62300 },
     { status: "draft", count: 18, amount: 15800 },
     { status: "overdue", count: 8, amount: 12750 },
-  ],
+  ] as InvoiceStatusItem[],
   recentPayments: [
     { id: "INV-2025-0147", customer: "Aramco Supply Co.", amount: 18500, date: "2025-04-20", method: "bank_transfer" },
     { id: "INV-2025-0143", customer: "Al-Rashid Trading", amount: 7200, date: "2025-04-18", method: "card" },
     { id: "INV-2025-0139", customer: "Riyadh Tech Group", amount: 24000, date: "2025-04-16", method: "bank_transfer" },
     { id: "INV-2025-0134", customer: "Gulf Logistics LLC", amount: 5600, date: "2025-04-14", method: "cheque" },
     { id: "INV-2025-0128", customer: "Saudi Build Co.", amount: 11800, date: "2025-04-11", method: "cash" },
-  ],
+  ] as Payment[],
   topItems: [
     { name: "Consulting Services", name_ar: "خدمات الاستشارات", revenue: 84200, count: 38 },
     { name: "Software License", name_ar: "رخصة البرمجيات", revenue: 67500, count: 25 },
     { name: "Hardware Supply", name_ar: "توريد الأجهزة", revenue: 52300, count: 19 },
     { name: "Maintenance Contract", name_ar: "عقد الصيانة", revenue: 38900, count: 31 },
     { name: "Training Sessions", name_ar: "جلسات التدريب", revenue: 21450, count: 14 },
-  ],
+  ] as TopItem[],
 };
 
-const fmt = (n) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-// const StatusBadge = ({ status, t }) => {
-//   const styles = {
-//     paid: { bg: "#ecfdf5", color: "#059669", label: t.paid },
-//     sent: { bg: "#eff6ff", color: "#2563eb", label: t.sent },
-//     draft: { bg: "#f8fafc", color: "#64748b", label: t.draft },
-//     overdue: { bg: "#fff1f2", color: "#e11d48", label: t.overdueLabel },
-//   };
-//   const s = styles[status] || styles.draft;
-//   return (
-//     <span style={{
-//       background: s.bg, color: s.color,
-//       padding: "2px 10px", borderRadius: 20,
-//       fontSize: 12, fontWeight: 600, letterSpacing: "0.02em"
-//     }}>{s.label}</span>
-//   );
-// };
-
-
-
-const DonutChart = ({ data, t }) => {
-  const total = data.reduce((s, d) => s + d.count, 0);
-  const colors = { paid: "#10b981", sent: "#3b82f6", draft: "#94a3b8", overdue: "#f43f5e" };
-  let cumulative = 0;
-  const radius = 54;
-  const circ = 2 * Math.PI * radius;
-  const segments = data.map(d => {
-    const pct = d.count / total;
-    const dash = pct * circ;
-    const offset = circ - cumulative * circ;
-    cumulative += pct;
-    return { ...d, dash, offset };
+const fmt = (n: number): string =>
+  n.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   });
 
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
-      <svg width="140" height="140" viewBox="0 0 140 140">
-        <circle cx="70" cy="70" r={radius} fill="none" stroke="#f1f5f9" strokeWidth="18" />
-        {segments.map((seg, i) => (
-          <circle key={i} cx="70" cy="70" r={radius} fill="none"
-            stroke={colors[seg.status]} strokeWidth="18"
-            strokeDasharray={`${seg.dash} ${circ - seg.dash}`}
-            strokeDashoffset={seg.offset}
-            style={{ transform: "rotate(-90deg)", transformOrigin: "70px 70px", transition: "all 0.4s ease" }}
-          />
-        ))}
-        <text x="70" y="66" textAnchor="middle" fontSize="22" fontWeight="700" fill="#0f172a">{total}</text>
-        <text x="70" y="82" textAnchor="middle" fontSize="10" fill="#94a3b8">{t.totalInvoices.split(" ")[0]}</text>
-      </svg>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {data.map((d, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 10, height: 10, borderRadius: "50%", background: colors[d.status], flexShrink: 0 }} />
-            <span style={{ fontSize: 13, color: "#475569", minWidth: 60 }}>
-              {t[d.status] || t.overdueLabel}
-            </span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginLeft: "auto" }}>{d.count}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+const methodLabelMap: Record<Payment["method"], string> = {
+  bank_transfer: "Bank",
+  card: "Card",
+  cheque: "Cheque",
+  cash: "Cash",
+  other: "Other",
 };
 
 export function Dashboard() {
-  const [lang, setLang] = useState("en");
-  // const [activeNav, setActiveNav] = useState("dashboard");
-  const t = translations[lang];
+  const [lang, setLang] = useState<Lang>("en");
+  const t: Translation = translations[lang];
+
   const isRTL = lang === "ar";
   const { stats, invoiceStatus, recentPayments, topItems } = mockData;
+
+  const methodLabel = (m: Payment["method"]) => methodLabelMap[m];
 
   const statCards = [
     { label: t.totalRevenue, value: `${t.sar} ${fmt(stats.totalRevenue)}`, icon: "💰", color: "#3b82f6", bg: "#eff6ff", trend: "+12.4%" },
@@ -196,8 +225,6 @@ export function Dashboard() {
     { label: t.totalCustomers, value: stats.totalCustomers, icon: "👥", color: "#06b6d4", bg: "#ecfeff", trend: "+2" },
     { label: t.totalItems, value: stats.totalItems, icon: "📦", color: "#64748b", bg: "#f8fafc", trend: "—" },
   ];
-
-  const methodLabel = (m) => ({ bank_transfer: "Bank", card: "Card", cheque: "Cheque", cash: "Cash", other: "Other" }[m] || m);
 
   return (
     <div style={{
@@ -211,7 +238,7 @@ export function Dashboard() {
       color: "#0f172a",
     }}>
       {/* Sidebar */}
-     
+
 
       {/* Main */}
       <main style={{ flex: 1, padding: "32px 36px", overflowX: "hidden", maxWidth: "calc(100vw - 230px)" }}>
@@ -228,7 +255,7 @@ export function Dashboard() {
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexDirection: isRTL ? "row-reverse" : "row" }}>
             {/* Lang toggle */}
             <div style={{ display: "flex", background: "#f1f5f9", borderRadius: 8, padding: 3 }}>
-              {["en", "ar"].map(l => (
+              {(["en", "ar"] as Lang[]).map(l => (
                 <button key={l} onClick={() => setLang(l)} style={{
                   padding: "5px 14px", borderRadius: 6, border: "none",
                   background: lang === l ? "#fff" : "transparent",
@@ -239,7 +266,7 @@ export function Dashboard() {
                   transition: "all 0.15s",
                 }}>{l === "en" ? "EN" : "عربي"}</button>
               ))}
-            </div>
+            </div>  
 
             {/* Date */}
             <div style={{

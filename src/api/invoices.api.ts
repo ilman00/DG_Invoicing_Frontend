@@ -3,7 +3,7 @@ import type {
   InvoiceWithDetails,
   CreateInvoiceDTO,
   UpdateInvoiceDTO,
-} from '../types';
+} from '../types/invoice.types';
 
 export const invoicesApi = {
   getAll: async (): Promise<InvoiceWithDetails[]> => {

@@ -1,54 +1,65 @@
-import { useState, useCallback } from 'react';
-import { Plus, Trash2, ChevronDown } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { Plus, Trash2, ChevronDown, Search, User, Loader2 } from 'lucide-react';
 import type { InvoiceType, InvoiceStatus } from '../../../types/invoice.types';
+import { useCustomers } from '../../../hooks/useCustomers';
+import type { Customer } from '../../../types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface LineItemFormValue {
-  item_id?: number;
-  item_name: string;
+  item_id?:      number;
+  item_name:     string;
   item_name_ar?: string;
-  quantity: number;
-  unit_price: number;
-  vat_rate: number;
+  quantity:      number;
+  unit_price:    number;
+  vat_rate:      number;
 }
 
 export interface InvoiceFormValues {
-  customer_id: number;
-  invoice_type: InvoiceType;
-  currency_code: string;
-  issue_date: string;
-  due_date: string;
-  notes?: string;
-  status?: InvoiceStatus;
-  line_items: LineItemFormValue[];
+  customer_id:           number;
+  invoice_type:          InvoiceType;
+  currency_code:         string;
+  issue_date:            string;
+  due_date:              string;
+  notes?:                string;
+  status?:               InvoiceStatus;
+  reference_invoice_id?: number;
+  line_items:            LineItemFormValue[];
 }
 
 interface Props {
-  initialValues?: Partial<InvoiceFormValues>;
-  isEditing?: boolean;
-  onSubmit: (data: InvoiceFormValues) => Promise<void>;
-  isSubmitting: boolean;
-  submitError?: string | null;
+  initialValues?:  Partial<InvoiceFormValues>;
+  isEditing?:      boolean;
+  onSubmit:        (data: InvoiceFormValues) => Promise<void>;
+  isSubmitting:    boolean;
+  submitError?:    string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const today = () => new Date().toISOString().split('T')[0];
-const in30 = () => {
+const in30  = () => {
   const d = new Date();
   d.setDate(d.getDate() + 30);
   return d.toISOString().split('T')[0];
 };
 
 const emptyItem = (): LineItemFormValue => ({
-  item_name: '',
-  quantity: 1,
+  item_name:  '',
+  quantity:   1,
   unit_price: 0,
-  vat_rate: 15,
+  vat_rate:   15,
 });
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Shared style tokens (your light theme) ───────────────────────────────────
+
+const inputCls =
+  'w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500';
+
+const selectCls =
+  'w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500';
+
+// ─── Field wrapper ────────────────────────────────────────────────────────────
 
 const Field = ({
   label,
@@ -56,25 +67,174 @@ const Field = ({
   children,
   className = '',
 }: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
+  label:      string;
+  required?:  boolean;
+  children:   React.ReactNode;
   className?: string;
 }) => (
   <div className={`flex flex-col gap-1.5 ${className}`}>
     <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
       {label}
-      {required && <span className="ml-0.5 text-amber-400">*</span>}
+      {required && <span className="ml-0.5 text-red-400">*</span>}
     </label>
     {children}
   </div>
 );
 
-const inputCls =
-  'w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500';
+// ─── Customer search dropdown ─────────────────────────────────────────────────
 
-const selectCls =
-  'w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500';
+interface CustomerSelectProps {
+  value:     number;
+  onChange:  (id: number) => void;
+  disabled?: boolean;
+}
+
+const CustomerSelect = ({ value, onChange, disabled }: CustomerSelectProps) => {
+  const { customers, isLoading } = useCustomers();
+  const [open,  setOpen]  = useState(false);
+  const [query, setQuery] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  const selected = customers.find((c) => c.id === value) ?? null;
+
+  const filtered = query.trim()
+    ? customers.filter(
+        (c) =>
+          c.name.toLowerCase().includes(query.toLowerCase()) ||
+          c.email.toLowerCase().includes(query.toLowerCase())
+      )
+    : customers;
+
+  // close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const select = (c: Customer) => {
+    onChange(c.id);
+    setOpen(false);
+    setQuery('');
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      {/* Trigger */}
+      <button
+        type="button"
+        disabled={disabled || isLoading}
+        onClick={() => setOpen((o) => !o)}
+        className={[
+          'flex w-full items-center justify-between gap-2 rounded-lg border bg-white px-3 py-2.5 text-sm shadow-sm transition',
+          open
+            ? 'border-blue-500 ring-2 ring-blue-500/20'
+            : 'border-slate-200 hover:border-slate-300',
+          disabled ? 'cursor-not-allowed bg-slate-50 opacity-60' : '',
+        ].join(' ')}
+      >
+        <span className="flex items-center gap-2 truncate">
+          {isLoading
+            ? <Loader2 size={14} className="animate-spin text-slate-400" />
+            : <User size={14} className={selected ? 'text-blue-500' : 'text-slate-400'} />
+          }
+          {isLoading ? (
+            <span className="text-slate-400">Loading customers…</span>
+          ) : selected ? (
+            <span className="text-slate-900 truncate">{selected.name}</span>
+          ) : (
+            <span className="text-slate-400">Select a customer…</span>
+          )}
+        </span>
+
+        <span className="flex shrink-0 items-center gap-1.5">
+          {selected && (
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500 truncate max-w-[120px]">
+              {selected.email}
+            </span>
+          )}
+          <ChevronDown
+            size={13}
+            className={`text-slate-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          />
+        </span>
+      </button>
+
+      {/* Dropdown panel */}
+      {open && (
+        <div className="absolute z-50 mt-1.5 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-200/80">
+          {/* Search input */}
+          <div className="border-b border-slate-100 p-2">
+            <div className="relative">
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                autoFocus
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by name or email…"
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-7 pr-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-500/20"
+              />
+            </div>
+          </div>
+
+          {/* List */}
+          <ul className="max-h-52 overflow-y-auto py-1">
+            {filtered.length === 0 ? (
+              <li className="px-3 py-4 text-center text-xs text-slate-400">
+                No customers found
+              </li>
+            ) : (
+              filtered.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => select(c)}
+                    className={[
+                      'flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-slate-50',
+                      c.id === value ? 'bg-blue-50' : '',
+                    ].join(' ')}
+                  >
+                    {/* Avatar initial */}
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600 border border-slate-200">
+                      {c.name.charAt(0).toUpperCase()}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-xs font-semibold text-slate-800">
+                          {c.name}
+                        </span>
+                        <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase ${
+                          c.type === 'business'
+                            ? 'bg-blue-100 text-blue-600'
+                            : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {c.type}
+                        </span>
+                      </div>
+                      <div className="truncate text-[11px] text-slate-400">{c.email}</div>
+                    </div>
+
+                    {c.id === value && (
+                      <span className="shrink-0 text-sm text-blue-500">✓</span>
+                    )}
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main Form ────────────────────────────────────────────────────────────────
 
 export const InvoiceForm = ({
@@ -85,55 +245,49 @@ export const InvoiceForm = ({
   submitError,
 }: Props) => {
   const [form, setForm] = useState<InvoiceFormValues>({
-    customer_id: initialValues?.customer_id ?? 0,
-    invoice_type: initialValues?.invoice_type ?? 'simplified',
+    customer_id:   initialValues?.customer_id   ?? 0,
+    invoice_type:  initialValues?.invoice_type  ?? 'simplified',
     currency_code: initialValues?.currency_code ?? 'SAR',
-    issue_date: initialValues?.issue_date ?? today(),
-    due_date: initialValues?.due_date ?? in30(),
-    notes: initialValues?.notes ?? '',
-    status: initialValues?.status,
-    line_items: initialValues?.line_items?.length
-      ? initialValues.line_items.map(li => ({
-        item_id: (li as any).item_id,
-        item_name: li.item_name,
-        item_name_ar: (li as any).item_name_ar,
-        quantity: li.quantity,
-        unit_price: li.unit_price,
-        vat_rate: li.vat_rate ?? 15,
-      }))
+    issue_date:    initialValues?.issue_date    ?? today(),
+    due_date:      initialValues?.due_date      ?? in30(),
+    notes:         initialValues?.notes         ?? '',
+    status:        initialValues?.status,
+    line_items:    initialValues?.line_items?.length
+      ? initialValues.line_items.map((li) => ({
+          item_id:      (li as any).item_id,
+          item_name:    li.item_name,
+          item_name_ar: (li as any).item_name_ar,
+          quantity:     li.quantity,
+          unit_price:   li.unit_price,
+          vat_rate:     li.vat_rate ?? 15,
+        }))
       : [emptyItem()],
   });
 
   const set = useCallback(<K extends keyof InvoiceFormValues>(
     key: K, val: InvoiceFormValues[K]
-  ) => setForm(f => ({ ...f, [key]: val })), []);
+  ) => setForm((f) => ({ ...f, [key]: val })), []);
 
   const updateItem = (idx: number, key: keyof LineItemFormValue, val: any) =>
-    setForm(f => {
+    setForm((f) => {
       const items = [...f.line_items];
       items[idx] = { ...items[idx], [key]: val };
       return { ...f, line_items: items };
     });
 
-  const addItem = () => setForm(f => ({ ...f, line_items: [...f.line_items, emptyItem()] }));
+  const addItem    = () => setForm((f) => ({ ...f, line_items: [...f.line_items, emptyItem()] }));
   const removeItem = (idx: number) =>
-    setForm(f => ({ ...f, line_items: f.line_items.filter((_, i) => i !== idx) }));
+    setForm((f) => ({ ...f, line_items: f.line_items.filter((_, i) => i !== idx) }));
 
   // totals
-  const subtotal = form.line_items.reduce(
-    (s, li) => s + li.quantity * li.unit_price, 0
-  );
-  const vatTotal = form.line_items.reduce(
-    (s, li) => s + (li.quantity * li.unit_price * li.vat_rate) / 100, 0
-  );
+  const subtotal   = form.line_items.reduce((s, li) => s + li.quantity * li.unit_price, 0);
+  const vatTotal   = form.line_items.reduce((s, li) => s + (li.quantity * li.unit_price * li.vat_rate) / 100, 0);
   const grandTotal = subtotal + vatTotal;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await onSubmit(form);
   };
-
-  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-0">
@@ -146,32 +300,48 @@ export const InvoiceForm = ({
 
         <div className="grid grid-cols-2 gap-3">
 
-          <Field label="Customer ID" required>
-            <input
-              type="number"
-              min={1}
-              required
-              value={form.customer_id || ''}
-              onChange={e => set('customer_id', Number(e.target.value))}
-              placeholder="e.g. 42"
-              className={inputCls}
+          {/* Customer search — full width */}
+          <Field label="Customer" required className="col-span-2">
+            <CustomerSelect
+              value={form.customer_id}
+              onChange={(id) => set('customer_id', id)}
+              disabled={isEditing}
             />
+            {isEditing && (
+              <p className="text-[10px] text-slate-400">
+                Customer cannot be changed after invoice creation.
+              </p>
+            )}
           </Field>
 
           <Field label="Invoice Type">
             <div className="relative">
               <select
                 value={form.invoice_type}
-                onChange={e => set('invoice_type', e.target.value as InvoiceType)}
+                onChange={(e) => set('invoice_type', e.target.value as InvoiceType)}
                 className={selectCls}
+                disabled={isEditing}
               >
                 <option value="simplified">Simplified</option>
                 <option value="standard">Standard</option>
               </select>
-              <ChevronDown
-                size={14}
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
+              <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            </div>
+          </Field>
+
+          <Field label="Currency">
+            <div className="relative">
+              <select
+                value={form.currency_code}
+                onChange={(e) => set('currency_code', e.target.value)}
+                className={selectCls}
+                disabled={isEditing}
+              >
+                <option value="SAR">SAR — Saudi Riyal</option>
+                <option value="USD">USD — US Dollar</option>
+                <option value="PKR">PKR — Pakistani Rupee</option>
+              </select>
+              <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
             </div>
           </Field>
 
@@ -180,7 +350,7 @@ export const InvoiceForm = ({
               type="date"
               required
               value={form.issue_date}
-              onChange={e => set('issue_date', e.target.value)}
+              onChange={(e) => set('issue_date', e.target.value)}
               className={inputCls}
             />
           </Field>
@@ -190,36 +360,18 @@ export const InvoiceForm = ({
               type="date"
               required
               value={form.due_date}
-              onChange={e => set('due_date', e.target.value)}
+              onChange={(e) => set('due_date', e.target.value)}
               className={inputCls}
             />
           </Field>
 
-          <Field label="Currency">
-            <div className="relative">
-              <select
-                value={form.currency_code}
-                onChange={e => set('currency_code', e.target.value)}
-                className={selectCls}
-              >
-                <option value="SAR">SAR — Saudi Riyal</option>
-                <option value="USD">USD — US Dollar</option>
-                <option value="PKR">PKR — Pakistani Rupee</option>
-              </select>
-              <ChevronDown
-                size={14}
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-            </div>
-          </Field>
-
-          {/* Status only shown when editing */}
+          {/* Status — edit only */}
           {isEditing && (
-            <Field label="Status">
+            <Field label="Status" className="col-span-2">
               <div className="relative">
                 <select
                   value={form.status ?? 'draft'}
-                  onChange={e => set('status', e.target.value as InvoiceStatus)}
+                  onChange={(e) => set('status', e.target.value as InvoiceStatus)}
                   className={selectCls}
                 >
                   <option value="draft">Draft</option>
@@ -227,10 +379,7 @@ export const InvoiceForm = ({
                   <option value="paid">Paid</option>
                   <option value="overdue">Overdue</option>
                 </select>
-                <ChevronDown
-                  size={14}
-                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-                />
+                <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
               </div>
             </Field>
           )}
@@ -238,143 +387,129 @@ export const InvoiceForm = ({
       </div>
 
       {/* ── Divider ── */}
-      <div className="mx-6 border-t border-slate-700/60" />
+      <div className="mx-6 border-t border-slate-100" />
 
-      {/* ── Section: Line Items ── */}
-      <div className="px-6 py-5">
-        <div className="mb-4 flex items-center justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-600">
-            Line Items
-          </p>
+      {/* ── Section: Line Items (create only) ── */}
+      {!isEditing && (
+        <>
+          <div className="px-6 py-5">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-600">
+                Line Items
+              </p>
+              <button
+                type="button"
+                onClick={addItem}
+                className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs font-medium text-blue-600 shadow-sm transition hover:bg-blue-50 hover:border-blue-300"
+              >
+                <Plus size={12} />
+                Add Item
+              </button>
+            </div>
 
-          <button
-            type="button"
-            onClick={addItem}
-            className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs font-medium text-blue-600 shadow-sm transition hover:bg-blue-50 hover:border-blue-300"
-          >
-            <Plus size={12} />
-            Add Item
-          </button>
-        </div>
+            {/* Column headers */}
+            <div className="mb-1.5 grid grid-cols-[1fr_72px_88px_60px_32px] gap-2">
+              {['Item Name', 'Qty', 'Unit Price', 'VAT %', ''].map((h) => (
+                <span key={h} className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  {h}
+                </span>
+              ))}
+            </div>
 
-        {/* Column headers */}
-        <div className="mb-1.5 grid grid-cols-[1fr_72px_88px_60px_32px] gap-2">
-          {['Item Name', 'Qty', 'Unit Price', 'VAT %', ''].map(h => (
-            <span key={h} className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              {h}
-            </span>
-          ))}
-        </div>
+            <div className="flex flex-col gap-2">
+              {form.line_items.map((item, idx) => {
+                const lineTotal = item.quantity * item.unit_price;
+                const lineVat   = (lineTotal * item.vat_rate) / 100;
+                return (
+                  <div key={idx} className="group relative">
+                    <div className="grid grid-cols-[1fr_72px_88px_60px_32px] items-center gap-2">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Service or product"
+                        value={item.item_name}
+                        onChange={(e) => updateItem(idx, 'item_name', e.target.value)}
+                        className={inputCls}
+                      />
+                      <input
+                        type="number"
+                        min={1}
+                        required
+                        value={item.quantity}
+                        onChange={(e) => updateItem(idx, 'quantity', Number(e.target.value))}
+                        className={inputCls}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        required
+                        value={item.unit_price || ''}
+                        placeholder="0.00"
+                        onChange={(e) => updateItem(idx, 'unit_price', Number(e.target.value))}
+                        className={inputCls}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="0.01"
+                        value={item.vat_rate}
+                        onChange={(e) => updateItem(idx, 'vat_rate', Number(e.target.value))}
+                        className={inputCls}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeItem(idx)}
+                        disabled={form.line_items.length === 1}
+                        className="flex h-[38px] w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-20"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
 
-        <div className="flex flex-col gap-2">
-          {form.line_items.map((item, idx) => {
-            const lineTotal = item.quantity * item.unit_price;
-            const lineVat = (lineTotal * item.vat_rate) / 100;
-            return (
-              <div key={idx} className="group relative">
-                <div className="grid grid-cols-[1fr_72px_88px_60px_32px] items-center gap-2">
-                  <input
-                    type="text"
-                    required
-                    placeholder="Service or product"
-                    value={item.item_name}
-                    onChange={e => updateItem(idx, 'item_name', e.target.value)}
-                    className={inputCls}
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    required
-                    value={item.quantity}
-                    onChange={e => updateItem(idx, 'quantity', Number(e.target.value))}
-                    className={inputCls}
-                  />
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    required
-                    value={item.unit_price || ''}
-                    placeholder="0.00"
-                    onChange={e => updateItem(idx, 'unit_price', Number(e.target.value))}
-                    className={inputCls}
-                  />
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step="0.01"
-                    value={item.vat_rate}
-                    onChange={e => updateItem(idx, 'vat_rate', Number(e.target.value))}
-                    className={inputCls}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeItem(idx)}
-                    disabled={form.line_items.length === 1}
-                    className="flex h-[38px] w-8 items-center justify-center rounded-lg text-slate-600 transition hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-20"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-
-                {/* Per-line subtotal hint */}
-                {lineTotal > 0 && (
-                  <div className="mt-1 flex justify-end pr-10 text-[10px] text-slate-500">
-                    {lineTotal.toFixed(2)} + {lineVat.toFixed(2)} VAT
-                    &nbsp;=&nbsp;
-                    <span className="text-slate-400">{(lineTotal + lineVat).toFixed(2)}</span>
+                    {/* Per-line subtotal hint */}
+                    {lineTotal > 0 && (
+                      <div className="mt-1 flex justify-end pr-10 text-[10px] text-slate-400">
+                        {lineTotal.toFixed(2)} + {lineVat.toFixed(2)} VAT
+                        &nbsp;=&nbsp;
+                        <span className="font-medium text-slate-600">{(lineTotal + lineVat).toFixed(2)}</span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Divider ── */}
-      <div className="mx-6 border-t border-slate-700/60" />
-
-      {/* ── Totals ── */}
-      <div className="px-6 py-4">
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 shadow-sm">
-          <div className="flex flex-col gap-1.5">
-
-            {/* Subtotal */}
-            <div className="flex justify-between text-xs text-slate-600">
-              <span>Subtotal (excl. VAT)</span>
-              <span className="font-medium text-slate-900">
-                {form.currency_code} {subtotal.toFixed(2)}
-              </span>
+                );
+              })}
             </div>
-
-            {/* VAT */}
-            <div className="flex justify-between text-xs text-slate-600">
-              <span>VAT</span>
-              <span className="font-medium text-slate-900">
-                {form.currency_code} {vatTotal.toFixed(2)}
-              </span>
-            </div>
-
-            {/* Divider */}
-            <div className="my-1 border-t border-slate-200" />
-
-            {/* Grand Total */}
-            <div className="flex justify-between">
-              <span className="text-sm font-semibold text-slate-900">
-                Grand Total
-              </span>
-              <span className="text-sm font-bold text-blue-600">
-                {form.currency_code} {grandTotal.toFixed(2)}
-              </span>
-            </div>
-
           </div>
-        </div>
-      </div>
 
-      {/* ── Divider ── */}
-      <div className="mx-6 border-t border-slate-700/60" />
+          {/* ── Divider ── */}
+          <div className="mx-6 border-t border-slate-100" />
+
+          {/* ── Totals ── */}
+          <div className="px-6 py-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 shadow-sm">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between text-xs text-slate-600">
+                  <span>Subtotal (excl. VAT)</span>
+                  <span className="font-medium text-slate-900">{form.currency_code} {subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-600">
+                  <span>VAT</span>
+                  <span className="font-medium text-slate-900">{form.currency_code} {vatTotal.toFixed(2)}</span>
+                </div>
+                <div className="my-1 border-t border-slate-200" />
+                <div className="flex justify-between">
+                  <span className="text-sm font-semibold text-slate-900">Grand Total</span>
+                  <span className="text-sm font-bold text-blue-600">{form.currency_code} {grandTotal.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Divider ── */}
+          <div className="mx-6 border-t border-slate-100" />
+        </>
+      )}
 
       {/* ── Notes ── */}
       <div className="px-6 py-5">
@@ -382,59 +517,35 @@ export const InvoiceForm = ({
           <textarea
             rows={3}
             value={form.notes}
-            onChange={e => set('notes', e.target.value)}
+            onChange={(e) => set('notes', e.target.value)}
             placeholder="Any additional notes for this invoice…"
             className={`${inputCls} resize-none`}
           />
         </Field>
       </div>
 
-      {/* ── Footer: error + submit ── */}
+      {/* ── Footer ── */}
       <div className="sticky bottom-0 flex flex-col gap-3 border-t border-slate-200 bg-white px-6 py-4 backdrop-blur">
-
-        {/* Error */}
         {submitError && (
           <p className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
             {submitError}
           </p>
         )}
-
-        {/* Submit Button */}
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || form.customer_id === 0}
           className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? (
             <span className="flex items-center justify-center gap-2">
-              <svg
-                className="h-4 w-4 animate-spin"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v8H4z"
-                />
+              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
               </svg>
               Saving…
             </span>
-          ) : isEditing ? (
-            'Update Invoice'
-          ) : (
-            'Create Invoice'
-          )}
+          ) : isEditing ? 'Update Invoice' : 'Create Invoice'}
         </button>
-
       </div>
     </form>
   );

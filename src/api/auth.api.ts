@@ -1,7 +1,12 @@
 import { api } from '../lib/axios';
-import type { AuthResponse, LoginDTO } from '../types';
+import type { AuthResponse, LoginDTO, RegisterDTO } from '../types';
 
 export const authApi = {
+  register: async (data: RegisterDTO): Promise<AuthResponse> => {
+    const res = await api.post<{ success: true; data: AuthResponse }>('/auth/register', data);
+    return res.data.data;
+  },
+
   login: async (data: LoginDTO): Promise<AuthResponse> => {
     const res = await api.post<{ success: true; data: AuthResponse }>('/auth/login', data);
     return res.data.data;

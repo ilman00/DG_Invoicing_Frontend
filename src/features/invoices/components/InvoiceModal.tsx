@@ -109,15 +109,20 @@ export const InvoiceModal = ({
             initialValues={
               invoice
                 ? {
-                    customer_id: invoice.customer_id,
-                    invoice_type: invoice.invoice_type,
-                    currency_code: invoice.currency_code,
-                    issue_date: invoice.issue_date,
-                    due_date: invoice.due_date,
-                    notes: invoice.notes ?? '',
-                    status: invoice.status,
-                    line_items: invoice.line_items ?? [], // ✅ no any
-                  }
+                  customer_id: invoice.customer_id,
+                  invoice_type: invoice.invoice_type,
+                  currency_code: invoice.currency_code,
+                  issue_date: invoice.issue_date,
+                  due_date: invoice.due_date,
+                  notes: invoice.notes ?? '',
+                  status: invoice.status,
+                  line_items:
+                    invoice.line_items?.map((item) => ({
+                      ...item,
+                      item_id: item.item_id ?? undefined,
+                      item_name_ar: item.item_name_ar ?? undefined, // ✅ fix here
+                    })) ?? [],
+                }
                 : undefined
             }
             isEditing={isEditing}

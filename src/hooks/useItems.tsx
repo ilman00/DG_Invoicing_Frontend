@@ -67,13 +67,21 @@ export function useItems(): UseItemsReturn {
   // }, [tick]);
 
   useEffect(() => {
-    setIsLoading(true);
+  setIsLoading(true);
+  setError(null);
 
-    setTimeout(() => {
+  const timer = setTimeout(() => {
+    try {
       setItems(MOCK_ITEMS);
+    } catch (err: any) {
+      setError('Failed to load items');
+    } finally {
       setIsLoading(false);
-    }, 500); // simulate API delay
-  }, []);
+    }
+  }, 500);
+
+  return () => clearTimeout(timer);
+}, [tick]); // ✅ now refresh() works
 
   const createItem = async (data: ItemFormValues) => {
     const created = await itemsApi.create(data);

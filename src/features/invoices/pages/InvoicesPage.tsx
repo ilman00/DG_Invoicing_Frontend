@@ -7,12 +7,14 @@ import {
   AlertCircle,
   ReceiptText,
   RefreshCw,
+  Download,
 } from 'lucide-react';
 
 import type { InvoiceWithDetails } from '../../../types/invoice.types';
 import { useInvoices } from '../../../hooks/useInvoices';
 import { InvoiceModal } from '../components/InvoiceModal';
 import type { InvoiceFormValues } from '../components/invoiceForm';
+import { generateInvoicePdf } from '../../../utils/generateInvoicePdf';
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
@@ -106,6 +108,8 @@ export const InvoicesPage = () => {
   const [statusFilter, setStatusFilter] =
     useState<InvoiceWithDetails['status'] | 'all'>('all');
 
+  // ─── Filtering ──────────────────────────────────────────────────────────────
+
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
     return invoices.filter((inv) => {
@@ -121,6 +125,8 @@ export const InvoicesPage = () => {
     });
   }, [invoices, query, statusFilter]);
 
+  // ─── Stats ──────────────────────────────────────────────────────────────────
+
   const stats = useMemo(() => ({
     total: invoices.length,
     paid: invoices.filter(i => i.status === 'paid').length,
@@ -130,8 +136,12 @@ export const InvoicesPage = () => {
       .reduce((s, i) => s + Number(i.grand_total), 0),
   }), [invoices]);
 
+  // ─── Handlers ───────────────────────────────────────────────────────────────
+
   const handleSubmit = async (data: InvoiceFormValues) => {
     setIsSubmitting(true);
+    setSubmitError(null);
+
     try {
       if (editingInvoice) {
         await updateInvoice(editingInvoice.id, data);
@@ -139,6 +149,8 @@ export const InvoicesPage = () => {
         await createInvoice(data);
       }
       setModalOpen(false);
+    } catch (err: any) {
+      setSubmitError(err.message || 'Something went wrong');
     } finally {
       setIsSubmitting(false);
     }
@@ -147,10 +159,15 @@ export const InvoicesPage = () => {
   const handleDelete = async () => {
     if (!deletingInvoice) return;
     setIsDeleting(true);
-    await deleteInvoice(deletingInvoice.id);
-    setDeletingInvoice(null);
-    setIsDeleting(false);
+    try {
+      await deleteInvoice(deletingInvoice.id);
+      setDeletingInvoice(null);
+    } finally {
+      setIsDeleting(false);
+    }
   };
+
+  // ─── UI ─────────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -182,6 +199,14 @@ export const InvoicesPage = () => {
           </button>
         </div>
 
+        {/* Error banner */}
+        {error && (
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-600">
+            <AlertCircle size={14} />
+            {error}
+          </div>
+        )}
+
         {/* Stats */}
         <div className="mt-4 flex gap-3">
           <Stat label="Paid" value={stats.paid} />
@@ -192,6 +217,8 @@ export const InvoicesPage = () => {
 
       {/* Toolbar */}
       <div className="flex items-center gap-3 px-8 py-4">
+
+        {/* Search */}
         <div className="relative max-w-xs w-full">
           <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
           <input
@@ -202,6 +229,24 @@ export const InvoicesPage = () => {
           />
         </div>
 
+        {/* Status filter */}
+        <div className="flex gap-2">
+          {(['all', 'draft', 'sent', 'paid', 'overdue'] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-3 py-1 text-xs rounded-lg border ${
+                statusFilter === s
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-slate-600 border-slate-200'
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+
+        {/* Refresh */}
         <button
           onClick={refresh}
           className="p-2 rounded-lg hover:bg-slate-100"
@@ -214,24 +259,14 @@ export const InvoicesPage = () => {
       <div className="px-8 pb-6">
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
-              <tr>
-                <th className="px-5 py-3 text-left">Invoice</th>
-                <th className="px-5 py-3 text-left">Customer</th>
-                <th className="px-5 py-3">Amount</th>
-                <th className="px-5 py-3">Status</th>
-                <th className="px-5 py-3"></th>
-              </tr>
-            </thead>
-
             <tbody>
               {filtered.map(inv => {
                 const cfg = STATUS_CONFIG[inv.status];
                 return (
                   <tr key={inv.id} className="hover:bg-slate-50">
-                    <td className="px-5 py-3 font-medium">{inv.invoice_number}</td>
-                    <td className="px-5 py-3 text-slate-600">{inv.customer_name}</td>
-                    <td className="px-5 py-3 text-blue-600 font-semibold">
+                    <td className="px-5 py-3">{inv.invoice_number}</td>
+                    <td className="px-5 py-3">{inv.customer_name}</td>
+                    <td className="px-5 py-3">
                       {inv.currency_code} {Number(inv.grand_total).toFixed(2)}
                     </td>
                     <td className="px-5 py-3">
@@ -240,11 +275,14 @@ export const InvoicesPage = () => {
                       </span>
                     </td>
                     <td className="px-5 py-3 text-right">
-                      <button onClick={() => setEditingInvoice(inv)}>
+                      <button onClick={() => generateInvoicePdf(inv)}>
+                        <Download size={14} />
+                      </button>
+                      <button onClick={() => { setEditingInvoice(inv); setModalOpen(true); }}>
                         <Pencil size={14} />
                       </button>
                       <button onClick={() => setDeletingInvoice(inv)}>
-                        <Trash2 size={14} className="ml-2 text-red-500" />
+                        <Trash2 size={14} />
                       </button>
                     </td>
                   </tr>
@@ -277,7 +315,7 @@ export const InvoicesPage = () => {
   );
 };
 
-// Small stat component
+// Stat component
 const Stat = ({ label, value }: { label: string; value: any }) => (
   <div className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs">
     <span className="text-slate-500">{label}: </span>

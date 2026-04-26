@@ -1,6 +1,10 @@
+// AppRouter.tsx
+
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { AppLayout } from '../components/shared/AppLayout';
+import { ProtectedRoute } from './ProtectedRoute'; // ← import
 import { LoginPage } from '../features/auth/pages/LoginPage';
+import { RegisterPage } from '../features/auth/pages/RegisterPage';
 import { Dashboard } from '../features/dashboard/pages/DashboardPage';
 import { CustomersPage } from '../features/customers/pages/CustomersPage';
 import { ItemsPage } from '../features/items/pages/ItemsPage';
@@ -14,15 +18,24 @@ const router = createBrowserRouter([
     element: <LoginPage />,
   },
   {
-    element: <AppLayout />, // 🔥 directly use layout
+    path: '/register',
+    element: <RegisterPage />,
+  },
+  {
+    element: <ProtectedRoute />,          // ← guards all children
     children: [
-      { path: '/', element: <Navigate to="/dashboard" replace /> },
-      { path: '/dashboard', element: <Dashboard /> },
-      { path: '/customers', element: <CustomersPage /> },
-      { path: '/items', element: <ItemsPage /> },
-      { path: '/invoices', element: <InvoicesPage /> },
-      { path: '/payments', element: <PaymentsPage /> },
-      { path: '/settings', element: <SettingsPage /> },
+      {
+        element: <AppLayout />,
+        children: [
+          { path: '/', element: <Navigate to="/dashboard" replace /> },
+          { path: '/dashboard', element: <Dashboard /> },
+          { path: '/customers', element: <CustomersPage /> },
+          { path: '/items', element: <ItemsPage /> },
+          { path: '/invoices', element: <InvoicesPage /> },
+          { path: '/payments', element: <PaymentsPage /> },
+          { path: '/settings', element: <SettingsPage /> },
+        ],
+      },
     ],
   },
 ]);

@@ -11,6 +11,13 @@ export interface LoginDTO {
   password: string;
 }
 
+export interface RegisterDTO {
+  name: string;
+  email: string;
+  password: string;
+  organizationName: string;
+}
+
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
@@ -19,34 +26,81 @@ export interface AuthResponse {
 
 // ─── Customer ────────────────────────────────────────────────────────────────
 
-export type CustomerType = 'individual' | 'business';
+export type CustomerType   = 'individual' | 'business';
 export type CustomerStatus = 'active' | 'inactive' | 'blocked';
 
+// ─── Entity ───────────────────────────────────────────────────────────────────
+
 export interface Customer {
-  id: number;
-  organization_id: number;
-  name: string;
-  name_ar: string | null;
-  email: string;
-  phone: string | null;
-  type: CustomerType;
-  status: CustomerStatus;
-  created_by: number | null;
-  updated_by: number | null;
-  created_at: string;
-  updated_at: string;
+  id:               number;
+  organization_id:  number;
+  name:             string;
+  name_ar:          string | null;
+  email:            string;
+  phone:            string | null;
+  notes:            string | null;
+  vat_number:       string | null;
+  address_line1:    string | null;
+  building_number:  string | null;
+  district:         string | null;
+  city:             string | null;
+  postal_code:      string | null;
+  country_code:     string;           // defaults to 'SA'
+  opening_balance:  number;           // decimal stored as number
+  type:             CustomerType;
+  status:           CustomerStatus;
+  created_by:       number | null;
+  updated_by:       number | null;
+  created_at:       string;           // ISO timestamp string from MySQL
+  updated_at:       string;
 }
 
+// ─── DTOs ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Sent by the frontend on POST /customers.
+ * organizationId and userId are injected by the backend from req.user —
+ * never include them here.
+ */
 export interface CreateCustomerDTO {
-  name: string;
-  name_ar?: string;
-  email: string;
-  phone?: string;
-  type?: CustomerType;
-  status?: CustomerStatus;
+  name:             string;
+  email:            string;
+  type:             CustomerType;     // required — backend needs it to validate VAT
+  name_ar?:         string;
+  phone?:           string;
+  notes?:           string;
+  vat_number?:      string;           // required when type === 'business'
+  address_line1?:   string;
+  building_number?: string;
+  district?:        string;
+  city?:            string;
+  postal_code?:     string;
+  country_code?:    string;           // defaults to 'SA' on the backend
+  opening_balance?: number;           // defaults to 0 on the backend
+  status?:          CustomerStatus;   // defaults to 'active' on the backend
 }
 
-export interface UpdateCustomerDTO extends Partial<CreateCustomerDTO> {}
+/**
+ * Sent by the frontend on PUT /customers/:id.
+ * Every field is optional — only changed fields need to be included.
+ */
+export interface UpdateCustomerDTO {
+  name?:            string;
+  name_ar?:         string;
+  email?:           string;
+  phone?:           string;
+  notes?:           string;
+  vat_number?:      string;
+  address_line1?:   string;
+  building_number?: string;
+  district?:        string;
+  city?:            string;
+  postal_code?:     string;
+  country_code?:    string;
+  opening_balance?: number;
+  type?:            CustomerType;
+  status?:          CustomerStatus;
+}
 
 // ─── Item ────────────────────────────────────────────────────────────────────
 
@@ -69,28 +123,6 @@ export interface CreateItemDTO {
 }
 
 export interface UpdateItemDTO extends Partial<CreateItemDTO> {}
-
-// ─── Invoice ─────────────────────────────────────────────────────────────────
-
-
-
-
-
-export interface CreateLineItemDTO {
-  item_id?: number;
-  item_name: string;
-  item_name_ar?: string;
-  quantity: number;
-  unit_price: number;
-}
-
-export interface CreateInvoiceDTO {
-  customer_id: number;
-  issue_date: string;
-  due_date: string;
-  notes?: string;
-  line_items: CreateLineItemDTO[];
-}
 
 
 // ─── API Response ─────────────────────────────────────────────────────────────

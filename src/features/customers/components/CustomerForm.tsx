@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Customer } from '../../../types';
@@ -9,14 +9,25 @@ import { Select } from '../../../components/ui/Select';
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
-const customerSchema = z.object({
-  name:    z.string().min(2, 'Name must be at least 2 characters').max(150),
-  name_ar: z.string().max(150).optional().or(z.literal('')),
-  email:   z.string().email('Enter a valid email address'),
-  phone:   z.string().max(30).optional().or(z.literal('')),
-  type:    z.enum(['individual', 'business']),
-  status:  z.enum(['active', 'inactive', 'blocked']),
-});
+const customerSchema = z
+  .object({
+    name:       z.string().min(2, 'Name must be at least 2 characters').max(150),
+    name_ar:    z.string().max(150).optional().or(z.literal('')),
+    email:      z.string().email('Enter a valid email address'),
+    phone:      z.string().max(30).optional().or(z.literal('')),
+    type:       z.enum(['individual', 'business']),
+    status:     z.enum(['active', 'inactive', 'blocked']),
+    vat_number: z.string().max(50).optional().or(z.literal('')),
+  })
+  .superRefine((data, ctx) => {
+    if (data.type === 'business' && !data.vat_number) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'VAT number is required for business customers',
+        path: ['vat_number'],
+      });
+    }
+  });
 
 export type CustomerFormValues = z.infer<typeof customerSchema>;
 
@@ -43,28 +54,34 @@ export const CustomerForm = ({
     register,
     handleSubmit,
     reset,
+    control,
     formState: { errors },
   } = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
     defaultValues: {
-      name:    defaultValues?.name    ?? '',
-      name_ar: defaultValues?.name_ar ?? '',
-      email:   defaultValues?.email   ?? '',
-      phone:   defaultValues?.phone   ?? '',
-      type:    defaultValues?.type    ?? 'individual',
-      status:  defaultValues?.status  ?? 'active',
+      name:       defaultValues?.name       ?? '',
+      name_ar:    defaultValues?.name_ar    ?? '',
+      email:      defaultValues?.email      ?? '',
+      phone:      defaultValues?.phone      ?? '',
+      type:       defaultValues?.type       ?? 'individual',
+      status:     defaultValues?.status     ?? 'active',
+      vat_number: defaultValues?.vat_number ?? '',
     },
   });
+
+  // watch type to conditionally show vat_number
+  const selectedType = useWatch({ control, name: 'type' });
 
   // sync form when editing a different customer
   useEffect(() => {
     reset({
-      name:    defaultValues?.name    ?? '',
-      name_ar: defaultValues?.name_ar ?? '',
-      email:   defaultValues?.email   ?? '',
-      phone:   defaultValues?.phone   ?? '',
-      type:    defaultValues?.type    ?? 'individual',
-      status:  defaultValues?.status  ?? 'active',
+      name:       defaultValues?.name       ?? '',
+      name_ar:    defaultValues?.name_ar    ?? '',
+      email:      defaultValues?.email      ?? '',
+      phone:      defaultValues?.phone      ?? '',
+      type:       defaultValues?.type       ?? 'individual',
+      status:     defaultValues?.status     ?? 'active',
+      vat_number: defaultValues?.vat_number ?? '',
     });
   }, [defaultValues?.id]);
 
@@ -128,6 +145,17 @@ export const CustomerForm = ({
           {...register('status')}
         />
       </div>
+
+      {/* VAT number — required for business, hidden for individual */}
+      {selectedType === 'business' && (
+        <Input
+          id="vat_number"
+          label="VAT Number"
+          placeholder="310000000000003"
+          error={errors.vat_number?.message}
+          {...register('vat_number')}
+        />
+      )}
 
       <div className="flex justify-end gap-3 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>
