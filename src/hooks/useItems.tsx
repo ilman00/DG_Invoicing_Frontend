@@ -12,30 +12,7 @@ interface UseItemsReturn {
   deleteItem: (id: number) => Promise<void>;
   refresh: () => void;
 }
-const MOCK_ITEMS: Item[] = [
-  {
-    id: 1,
-    organization_id: 1,
-    name: 'Hosting',
-    name_ar: null,
-    price: 50,
-    created_by: null,
-    updated_by: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    organization_id: 1,
-    name: 'Website Development',
-    name_ar: null,
-    price: 500,
-    created_by: null,
-    updated_by: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
+
 export function useItems(): UseItemsReturn {
   const [items, setItems] = useState<Item[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,59 +21,59 @@ export function useItems(): UseItemsReturn {
 
   const refresh = useCallback(() => setTick((t) => t + 1), []);
 
-  // useEffect(() => {
-  //   let cancelled = false;
+  // Remove MOCK_ITEMS entirely
+// Replace the setTimeout useEffect with the real one:
 
-  //   const fetchItems = async () => {
-  //     setIsLoading(true);
-  //     setError(null);
-  //     try {
-  //       const data = await itemsApi.getAll();
-  //       if (!cancelled) setItems(data);
-  //     } catch (err: any) {
-  //       if (!cancelled) {
-  //         setError(err?.response?.data?.message || 'Failed to load items');
-  //       }
-  //     } finally {
-  //       if (!cancelled) setIsLoading(false);
-  //     }
-  //   };
+useEffect(() => {
+  let cancelled = false;
 
-  //   fetchItems();
-  //   return () => { cancelled = true; };
-  // }, [tick]);
-
-  useEffect(() => {
-  setIsLoading(true);
-  setError(null);
-
-  const timer = setTimeout(() => {
+  const fetchItems = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      setItems(MOCK_ITEMS);
+      const data = await itemsApi.getAll();
+      if (!cancelled) setItems(data);
     } catch (err: any) {
-      setError('Failed to load items');
+      if (!cancelled) {
+        setError(err?.response?.data?.message || 'Failed to load items');
+      }
     } finally {
-      setIsLoading(false);
+      if (!cancelled) setIsLoading(false);
     }
-  }, 500);
+  };
 
-  return () => clearTimeout(timer);
-}, [tick]); // ✅ now refresh() works
+  fetchItems();
+  return () => { cancelled = true; };
+}, [tick]);
+
+
 
   const createItem = async (data: ItemFormValues) => {
+  try {
     const created = await itemsApi.create(data);
     setItems((prev) => [created, ...prev]);
-  };
+  } catch (err: any) {
+    throw new Error(err?.response?.data?.message || 'Failed to create item');
+  }
+};
 
-  const updateItem = async (id: number, data: ItemFormValues) => {
+const updateItem = async (id: number, data: ItemFormValues) => {
+  try {
     const updated = await itemsApi.update(id, data);
     setItems((prev) => prev.map((i) => (i.id === id ? updated : i)));
-  };
+  } catch (err: any) {
+    throw new Error(err?.response?.data?.message || 'Failed to update item');
+  }
+};
 
-  const deleteItem = async (id: number) => {
+const deleteItem = async (id: number) => {
+  try {
     await itemsApi.delete(id);
     setItems((prev) => prev.filter((i) => i.id !== id));
-  };
+  } catch (err: any) {
+    throw new Error(err?.response?.data?.message || 'Failed to delete item');
+  }
+};
 
   return { items, isLoading, error, createItem, updateItem, deleteItem, refresh };
 }

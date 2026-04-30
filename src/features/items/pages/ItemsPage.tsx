@@ -14,6 +14,8 @@ export const ItemsPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState<'created_desc' | 'created_asc' | 'name_asc' | 'price_desc' | 'price_asc'>('created_desc');
+  const [mutationError, setMutationError] = useState<string | null>(null);
+
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
@@ -44,6 +46,7 @@ export const ItemsPage = () => {
 
   const handleSubmit = async (data: ItemFormValues) => {
     setIsSubmitting(true);
+    setMutationError(null);
     try {
       if (editingItem) {
         await updateItem(editingItem.id, data);
@@ -51,9 +54,16 @@ export const ItemsPage = () => {
         await createItem(data);
       }
       setOpen(false);
+    } catch (err: any) {
+      setMutationError(err.message);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    setMutationError(null);
   };
 
   const handleDelete = async (id: number) => {
@@ -222,10 +232,11 @@ export const ItemsPage = () => {
       {/* Modal */}
       <ItemModal
         isOpen={open}
-        onClose={() => setOpen(false)}
+        onClose={handleClose}
         item={editingItem}
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
+        submitError={mutationError}     // ← add this
       />
     </div>
   );

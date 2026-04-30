@@ -3,57 +3,58 @@ import { Plus, Trash2, ChevronDown, Search, User, Loader2 } from 'lucide-react';
 import type { InvoiceType, InvoiceStatus } from '../../../types/invoice.types';
 import { useCustomers } from '../../../hooks/useCustomers';
 import type { Customer } from '../../../types';
+import { LineItemInput } from './LineItemInput';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface LineItemFormValue {
-  item_id?:      number;
-  item_name:     string;
+  item_id?: number;
+  item_name: string;
   item_name_ar?: string;
-  quantity:      number;
-  unit_price:    number;
-  vat_rate:      number;
+  quantity: number;
+  unit_price: number;
+  vat_rate: number;
 }
 
 export interface InvoiceFormValues {
-  customer_id:           number;
-  invoice_type:          InvoiceType;
-  currency_code:         string;
-  issue_date:            string;
-  due_date:              string;
-  notes?:                string;
-  status?:               InvoiceStatus;
+  customer_id: number;
+  invoice_type: InvoiceType;
+  currency_code: string;
+  issue_date: string;
+  due_date: string;
+  notes?: string;
+  status?: InvoiceStatus;
   reference_invoice_id?: number;
-  line_items:            LineItemFormValue[];
+  line_items: LineItemFormValue[];
 }
 
 interface Props {
-  initialValues?:  Partial<InvoiceFormValues>;
-  isEditing?:      boolean;
-  onSubmit:        (data: InvoiceFormValues) => Promise<void>;
-  isSubmitting:    boolean;
-  submitError?:    string | null;
+  initialValues?: Partial<InvoiceFormValues>;
+  isEditing?: boolean;
+  onSubmit: (data: InvoiceFormValues) => Promise<void>;
+  isSubmitting: boolean;
+  submitError?: string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const today = () => new Date().toISOString().split('T')[0];
-const in30  = () => {
+const in30 = () => {
   const d = new Date();
   d.setDate(d.getDate() + 30);
   return d.toISOString().split('T')[0];
 };
 
 const emptyItem = (): LineItemFormValue => ({
-  item_name:  '',
-  quantity:   1,
+  item_name: '',
+  quantity: 1,
   unit_price: 0,
-  vat_rate:   15,
+  vat_rate: 15,
 });
 
 // ─── Shared style tokens (your light theme) ───────────────────────────────────
 
-const inputCls =
+export const inputCls =
   'w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500';
 
 const selectCls =
@@ -67,9 +68,9 @@ const Field = ({
   children,
   className = '',
 }: {
-  label:      string;
-  required?:  boolean;
-  children:   React.ReactNode;
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
   className?: string;
 }) => (
   <div className={`flex flex-col gap-1.5 ${className}`}>
@@ -84,14 +85,14 @@ const Field = ({
 // ─── Customer search dropdown ─────────────────────────────────────────────────
 
 interface CustomerSelectProps {
-  value:     number;
-  onChange:  (id: number) => void;
+  value: number;
+  onChange: (id: number) => void;
   disabled?: boolean;
 }
 
 const CustomerSelect = ({ value, onChange, disabled }: CustomerSelectProps) => {
   const { customers, isLoading } = useCustomers();
-  const [open,  setOpen]  = useState(false);
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
 
@@ -99,10 +100,10 @@ const CustomerSelect = ({ value, onChange, disabled }: CustomerSelectProps) => {
 
   const filtered = query.trim()
     ? customers.filter(
-        (c) =>
-          c.name.toLowerCase().includes(query.toLowerCase()) ||
-          c.email.toLowerCase().includes(query.toLowerCase())
-      )
+      (c) =>
+        c.name.toLowerCase().includes(query.toLowerCase()) ||
+        c.email.toLowerCase().includes(query.toLowerCase())
+    )
     : customers;
 
   // close on outside click
@@ -210,11 +211,10 @@ const CustomerSelect = ({ value, onChange, disabled }: CustomerSelectProps) => {
                         <span className="truncate text-xs font-semibold text-slate-800">
                           {c.name}
                         </span>
-                        <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase ${
-                          c.type === 'business'
+                        <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase ${c.type === 'business'
                             ? 'bg-blue-100 text-blue-600'
                             : 'bg-slate-100 text-slate-500'
-                        }`}>
+                          }`}>
                           {c.type}
                         </span>
                       </div>
@@ -245,22 +245,22 @@ export const InvoiceForm = ({
   submitError,
 }: Props) => {
   const [form, setForm] = useState<InvoiceFormValues>({
-    customer_id:   initialValues?.customer_id   ?? 0,
-    invoice_type:  initialValues?.invoice_type  ?? 'simplified',
+    customer_id: initialValues?.customer_id ?? 0,
+    invoice_type: initialValues?.invoice_type ?? 'simplified',
     currency_code: initialValues?.currency_code ?? 'SAR',
-    issue_date:    initialValues?.issue_date    ?? today(),
-    due_date:      initialValues?.due_date      ?? in30(),
-    notes:         initialValues?.notes         ?? '',
-    status:        initialValues?.status,
-    line_items:    initialValues?.line_items?.length
+    issue_date: initialValues?.issue_date ?? today(),
+    due_date: initialValues?.due_date ?? in30(),
+    notes: initialValues?.notes ?? '',
+    status: initialValues?.status,
+    line_items: initialValues?.line_items?.length
       ? initialValues.line_items.map((li) => ({
-          item_id:      (li as any).item_id,
-          item_name:    li.item_name,
-          item_name_ar: (li as any).item_name_ar,
-          quantity:     li.quantity,
-          unit_price:   li.unit_price,
-          vat_rate:     li.vat_rate ?? 15,
-        }))
+        item_id: (li as any).item_id,
+        item_name: li.item_name,
+        item_name_ar: (li as any).item_name_ar,
+        quantity: li.quantity,
+        unit_price: li.unit_price,
+        vat_rate: li.vat_rate ?? 15,
+      }))
       : [emptyItem()],
   });
 
@@ -275,13 +275,13 @@ export const InvoiceForm = ({
       return { ...f, line_items: items };
     });
 
-  const addItem    = () => setForm((f) => ({ ...f, line_items: [...f.line_items, emptyItem()] }));
+  const addItem = () => setForm((f) => ({ ...f, line_items: [...f.line_items, emptyItem()] }));
   const removeItem = (idx: number) =>
     setForm((f) => ({ ...f, line_items: f.line_items.filter((_, i) => i !== idx) }));
 
   // totals
-  const subtotal   = form.line_items.reduce((s, li) => s + li.quantity * li.unit_price, 0);
-  const vatTotal   = form.line_items.reduce((s, li) => s + (li.quantity * li.unit_price * li.vat_rate) / 100, 0);
+  const subtotal = form.line_items.reduce((s, li) => s + li.quantity * li.unit_price, 0);
+  const vatTotal = form.line_items.reduce((s, li) => s + (li.quantity * li.unit_price * li.vat_rate) / 100, 0);
   const grandTotal = subtotal + vatTotal;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -419,17 +419,19 @@ export const InvoiceForm = ({
             <div className="flex flex-col gap-2">
               {form.line_items.map((item, idx) => {
                 const lineTotal = item.quantity * item.unit_price;
-                const lineVat   = (lineTotal * item.vat_rate) / 100;
+                const lineVat = (lineTotal * item.vat_rate) / 100;
                 return (
                   <div key={idx} className="group relative">
                     <div className="grid grid-cols-[1fr_72px_88px_60px_32px] items-center gap-2">
-                      <input
-                        type="text"
-                        required
-                        placeholder="Service or product"
-                        value={item.item_name}
-                        onChange={(e) => updateItem(idx, 'item_name', e.target.value)}
-                        className={inputCls}
+                      <LineItemInput
+                        value={item}
+                        onChange={(updated) =>
+                          setForm((f) => {
+                            const items = [...f.line_items];
+                            items[idx] = { ...items[idx], ...updated };
+                            return { ...f, line_items: items };
+                          })
+                        }
                       />
                       <input
                         type="number"

@@ -235,11 +235,10 @@ export const InvoicesPage = () => {
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1 text-xs rounded-lg border ${
-                statusFilter === s
+              className={`px-3 py-1 text-xs rounded-lg border ${statusFilter === s
                   ? 'bg-blue-600 text-white border-blue-600'
                   : 'bg-white text-slate-600 border-slate-200'
-              }`}
+                }`}
             >
               {s}
             </button>
@@ -259,6 +258,15 @@ export const InvoicesPage = () => {
       <div className="px-8 pb-6">
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
           <table className="w-full text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="text-left px-5 py-3">Invoice #</th>
+                <th className="text-left px-5 py-3">Customer</th>
+                <th className="text-left px-5 py-3">Amount</th>
+                <th className="text-left px-5 py-3">Status</th>
+                <th className="text-right px-5 py-3" >Action </th>
+              </tr>
+            </thead>
             <tbody>
               {filtered.map(inv => {
                 const cfg = STATUS_CONFIG[inv.status];
@@ -275,13 +283,13 @@ export const InvoicesPage = () => {
                       </span>
                     </td>
                     <td className="px-5 py-3 text-right">
-                      <button onClick={() => generateInvoicePdf(inv)}>
+                      <button className="p-1 hover:bg-slate-200" onClick={() => generateInvoicePdf(inv)}>
                         <Download size={14} />
                       </button>
-                      <button onClick={() => { setEditingInvoice(inv); setModalOpen(true); }}>
+                      <button className="p-1 hover:bg-slate-200" onClick={() => { setEditingInvoice(inv); setModalOpen(true); }}>
                         <Pencil size={14} />
                       </button>
-                      <button onClick={() => setDeletingInvoice(inv)}>
+                      <button className="p-1 hover:bg-slate-200" onClick={() => setDeletingInvoice(inv)}>
                         <Trash2 size={14} />
                       </button>
                     </td>

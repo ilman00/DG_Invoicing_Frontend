@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Info, DollarSign, Globe, } from 'lucide-react';
+import { Info, DollarSign, Globe, AlertCircle, } from 'lucide-react';
 import type { Item } from '../../../types';
 
 export interface ItemFormValues {
@@ -13,6 +13,7 @@ interface Props {
   onSubmit: (data: ItemFormValues) => Promise<void>;
   isSubmitting: boolean;
   onCancel: () => void;
+  submitError?: string | null;    // ← add
 }
 
 // ─── Reusable styled field wrapper ───────────────────────────────────────────
@@ -86,11 +87,11 @@ const SectionLabel = ({ children }: { children: React.ReactNode }) => (
 );
 
 // ─── Main form ────────────────────────────────────────────────────────────────
-export const ItemForm = ({ defaultValues, onSubmit, isSubmitting, onCancel }: Props) => {
+export const ItemForm = ({ defaultValues, onSubmit, isSubmitting, onCancel, submitError }: Props) => {
   const [form, setForm] = useState<ItemFormValues>({
-    name:    defaultValues?.name    ?? '',
+    name: defaultValues?.name ?? '',
     name_ar: defaultValues?.name_ar ?? '',
-    price:   defaultValues?.price   ?? 0,
+    price: defaultValues?.price ?? 0,
   });
 
   const vatPrice = (Number(form.price) * 1.15).toFixed(2);
@@ -98,9 +99,9 @@ export const ItemForm = ({ defaultValues, onSubmit, isSubmitting, onCancel }: Pr
   const fmtDate = (d: Date | string | undefined) =>
     d
       ? new Date(d).toLocaleDateString('en-SA', {
-          day: '2-digit', month: 'short', year: 'numeric',
-          hour: '2-digit', minute: '2-digit',
-        })
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      })
       : '—';
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -200,7 +201,12 @@ export const ItemForm = ({ defaultValues, onSubmit, isSubmitting, onCancel }: Pr
           </div>
         </>
       )}
-
+      {submitError && (
+        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+          <AlertCircle size={14} className="shrink-0" />
+          {submitError}
+        </div>
+      )}
       {/* ── Actions ── */}
       <div className="flex justify-end gap-2.5 pt-2 border-t border-gray-100 mt-1">
         <button

@@ -9,9 +9,10 @@ interface Props {
   item?: Item | null;
   onSubmit: (data: ItemFormValues) => Promise<void>;
   isSubmitting: boolean;
+  submitError?: string | null;    // ← add
 }
 
-export const ItemModal = ({ isOpen, onClose, item, onSubmit, isSubmitting }: Props) => {
+export const ItemModal = ({ isOpen, onClose, item, onSubmit, isSubmitting, submitError }: Props) => {
   const isEditing = !!item;
 
   useEffect(() => {
@@ -64,6 +65,7 @@ export const ItemModal = ({ isOpen, onClose, item, onSubmit, isSubmitting }: Pro
             onSubmit={onSubmit}
             isSubmitting={isSubmitting}
             onCancel={onClose}
+            submitError={submitError}     // ← pass through
           />
         </div>
       </div>
