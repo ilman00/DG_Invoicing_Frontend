@@ -10,6 +10,7 @@ import {
   Eye,
 } from 'lucide-react';
 
+
 import type { InvoiceWithDetails } from '../../../types/invoice.types';
 import { useInvoices } from '../../../hooks/useInvoices';
 import { InvoiceModal } from '../components/InvoiceModal';
