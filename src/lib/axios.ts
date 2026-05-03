@@ -7,11 +7,6 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// ─── Token storage (in-memory) ────────────────────────────────────────────────
-// Access token lives only in memory — never in localStorage or cookies.
-// Refresh token is stored in localStorage for persistence across page refreshes.
-// For an internal tool this is an acceptable tradeoff.
-
 let accessToken: string | null = null;
 
 export const tokenStore = {

@@ -48,13 +48,13 @@ export const AppLayout = () => {
         <div className="px-6 py-6 border-b border-gray-100">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center text-white font-bold">
-              F
+              DG
             </div>
             <div>
               <div className="font-extrabold text-sm text-gray-900 tracking-tight">
-                Fatoorah
+                DiGi Invoicing
               </div>
-              <div className="text-[10px] text-gray-400">فاتورة</div>
+              <div className="text-[10px] text-gray-400"></div>
             </div>
           </div>
         </div>

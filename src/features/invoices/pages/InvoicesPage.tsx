@@ -7,16 +7,15 @@ import {
   AlertCircle,
   ReceiptText,
   RefreshCw,
-  Download,
+  Eye,
 } from 'lucide-react';
 
 import type { InvoiceWithDetails } from '../../../types/invoice.types';
 import { useInvoices } from '../../../hooks/useInvoices';
 import { InvoiceModal } from '../components/InvoiceModal';
 import type { InvoiceFormValues } from '../components/invoiceForm';
-import { generateInvoicePdf } from '../../../utils/generateInvoicePdf';
+import { tokenStore } from '../../../lib/axios';
 
-// ─── Status config ────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<
   InvoiceWithDetails['status'],
@@ -167,6 +166,24 @@ export const InvoicesPage = () => {
     }
   };
 
+  const handleDownloadPdf = async (invoiceId: number, invoiceNumber: string) => {
+    const token = tokenStore.getAccessToken(); // wherever you store it
+    console.log(invoiceId, invoiceNumber);
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/invoices/${invoiceId}/pdf`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!res.ok) throw new Error('Failed to fetch PDF');
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+
+    window.open(url, '_blank');
+
+    // Clean up the object URL after a short delay
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  };
+
   // ─── UI ─────────────────────────────────────────────────────────────────────
 
   return (
@@ -236,8 +253,8 @@ export const InvoicesPage = () => {
               key={s}
               onClick={() => setStatusFilter(s)}
               className={`px-3 py-1 text-xs rounded-lg border ${statusFilter === s
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-slate-600 border-slate-200'
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-slate-600 border-slate-200'
                 }`}
             >
               {s}
@@ -282,16 +299,31 @@ export const InvoicesPage = () => {
                         {cfg.label}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-right">
-                      <button className="p-1 hover:bg-slate-200" onClick={() => generateInvoicePdf(inv)}>
-                        <Download size={14} />
-                      </button>
-                      <button className="p-1 hover:bg-slate-200" onClick={() => { setEditingInvoice(inv); setModalOpen(true); }}>
-                        <Pencil size={14} />
-                      </button>
-                      <button className="p-1 hover:bg-slate-200" onClick={() => setDeletingInvoice(inv)}>
-                        <Trash2 size={14} />
-                      </button>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => handleDownloadPdf(inv.id, inv.invoice_number)}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition-colors"
+                          title="View PDF"
+                        >
+                          <Eye size={13} />
+                          <span className="text-xs font-medium">PDF</span>
+                        </button>
+                        <button
+                          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                          onClick={() => { setEditingInvoice(inv); setModalOpen(true); }}
+                          title="Edit"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors"
+                          onClick={() => setDeletingInvoice(inv)}
+                          title="Delete"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

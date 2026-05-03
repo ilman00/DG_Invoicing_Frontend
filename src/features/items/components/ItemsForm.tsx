@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Info, DollarSign, Globe, AlertCircle, } from 'lucide-react';
 import type { Item } from '../../../types';
 
@@ -23,6 +23,30 @@ interface FieldProps {
   required?: boolean;
   children: React.ReactNode;
 }
+
+
+const translateText = async (
+  text: string,
+  from: 'en' | 'ar',
+  to: 'en' | 'ar'
+) => {
+  if (!text || text.trim().length < 2) return '';
+
+  try {
+    const res = await fetch(
+      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(
+        text
+      )}`
+    );
+
+    const data = await res.json();
+
+    return data[0]?.map((item: any) => item[0]).join('') || '';
+  } catch (err) {
+    console.error('Translation error:', err);
+    return '';
+  }
+};
 
 const Field = ({ label, hint, required, children }: FieldProps) => (
   <div className="flex flex-col gap-1.5">
@@ -88,13 +112,15 @@ const SectionLabel = ({ children }: { children: React.ReactNode }) => (
 
 // ─── Main form ────────────────────────────────────────────────────────────────
 export const ItemForm = ({ defaultValues, onSubmit, isSubmitting, onCancel, submitError }: Props) => {
-  const [form, setForm] = useState<ItemFormValues>({
+  const [form, setForm] = useState({
     name: defaultValues?.name ?? '',
     name_ar: defaultValues?.name_ar ?? '',
-    price: defaultValues?.price ?? 0,
+    price: defaultValues?.price?.toString() ?? '',
   });
 
-  const vatPrice = (Number(form.price) * 1.15).toFixed(2);
+  const [lastEdited, setLastEdited] = useState<'name' | 'name_ar' | null>(null);
+  const numericPrice = Number(form.price || 0);
+  const vatPrice = (numericPrice * 1.15).toFixed(2);
 
   const fmtDate = (d: Date | string | undefined) =>
     d
@@ -104,9 +130,41 @@ export const ItemForm = ({ defaultValues, onSubmit, isSubmitting, onCancel, subm
       })
       : '—';
 
+  useEffect(() => {
+    if (lastEdited !== 'name' || !form.name) return;
+
+    const timeout = setTimeout(async () => {
+      const result = await translateText(form.name, 'en', 'ar');
+
+      if (result && result !== form.name_ar) {
+        setForm((prev) => ({ ...prev, name_ar: result }));
+      }
+    }, 800);
+
+    return () => clearTimeout(timeout);
+  }, [form.name, lastEdited]);
+
+  useEffect(() => {
+    if (lastEdited !== 'name_ar' || !form.name_ar) return;
+
+    const timeout = setTimeout(async () => {
+      const result = await translateText(form.name_ar, 'ar', 'en');
+
+      if (result && result !== form.name) {
+        setForm((prev) => ({ ...prev, name: result }));
+      }
+    }, 800);
+
+    return () => clearTimeout(timeout);
+  }, [form.name_ar, lastEdited]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit({ ...form, name_ar: form.name_ar?.trim() || undefined });
+    await onSubmit({
+      ...form,
+      price: Number(form.price),
+      name_ar: form.name_ar?.trim() || undefined,
+    });
   };
 
   return (
@@ -130,7 +188,10 @@ export const ItemForm = ({ defaultValues, onSubmit, isSubmitting, onCancel, subm
             type="text"
             placeholder="e.g. Consulting Service"
             value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            onChange={(e) => {
+              setLastEdited('name');
+              setForm({ ...form, name: e.target.value });
+            }}
             icon={<Globe size={14} />}
             required
           />
@@ -145,7 +206,10 @@ export const ItemForm = ({ defaultValues, onSubmit, isSubmitting, onCancel, subm
             type="text"
             placeholder="مثال: خدمة استشارية"
             value={form.name_ar ?? ''}
-            onChange={(e) => setForm({ ...form, name_ar: e.target.value })}
+            onChange={(e) => {
+              setLastEdited('name_ar');
+              setForm({ ...form, name_ar: e.target.value });
+            }}
             dir="rtl"
             className="text-right"
           />
@@ -158,12 +222,23 @@ export const ItemForm = ({ defaultValues, onSubmit, isSubmitting, onCancel, subm
       <div className="grid grid-cols-2 gap-4">
         <Field label="Unit price (excl. VAT)" required hint="Base price before 15% Saudi VAT">
           <StyledInput
-            type="number"
+            type="text"   // 🔥 change from number → text
+            inputMode="decimal" // mobile keyboard still numeric
             placeholder="0.00"
-            min={0}
-            step="0.01"
             value={form.price}
-            onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+            onChange={(e) => {
+              let value = e.target.value;
+
+              // ✅ Remove leading zeros (but allow "0." case)
+              if (value.length > 1 && value.startsWith('0') && !value.startsWith('0.')) {
+                value = value.replace(/^0+/, '');
+              }
+
+              // ✅ Allow only numbers + decimal
+              if (!/^\d*\.?\d*$/.test(value)) return;
+
+              setForm({ ...form, price: value });
+            }}
             icon={<DollarSign size={14} />}
             suffix="SAR"
             required
