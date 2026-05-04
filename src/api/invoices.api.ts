@@ -12,9 +12,13 @@ export const invoicesApi = {
   },
 
   getById: async (id: number): Promise<InvoiceWithDetails> => {
-    const res = await api.get<{ success: true; data: InvoiceWithDetails }>(`/invoices/${id}`);
-    return res.data.data;
-  },
+  const res = await api.get<{ success: true; data: InvoiceWithDetails }>(`/invoices/${id}`);
+
+  // console.log('🔥 API RAW RESPONSE:', res.data);
+  // console.log('🔥 INVOICE DATA:', res.data.data);
+
+  return res.data.data;
+},
 
   create: async (data: CreateInvoiceDTO): Promise<InvoiceWithDetails> => {
     const res = await api.post<{ success: true; data: InvoiceWithDetails }>('/invoices', data);

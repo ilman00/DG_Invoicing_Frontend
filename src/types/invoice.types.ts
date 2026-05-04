@@ -4,6 +4,18 @@ export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue';
 export type InvoiceType   = 'standard' | 'simplified';
 
 // ─── DB Row Shapes ────────────────────────────────────────────────────────────
+export interface OrgInfo {
+  name: string;
+  name_ar?: string | null;
+  vat_number: string;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  postal_code?: string | null;
+  country_code?: string | null;
+  email?: string | null;
+  phone?: string | null;
+}
 
 export interface InvoiceLineItem {
   id:                  number;
@@ -55,6 +67,7 @@ export interface InvoiceWithDetails extends Invoice {
   customer_name:  string;
   customer_email: string;
   line_items:     InvoiceLineItem[];
+  org: OrgInfo;
 }
 
 // ─── DTOs (mirror backend) ────────────────────────────────────────────────────

@@ -5,6 +5,8 @@ import { AuthProvider } from './hooks/useAuth';
 import { AppRouter } from './router';
 import { queryClient } from './lib/query-client';
 import './index.css';
+import { injectInvoicePrintStyles } from './utils/invoicePrintStyle';
+injectInvoicePrintStyles();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -1,49 +1,33 @@
+
+
 import { useState, useMemo } from 'react';
 import {
-  Plus,
-  Search,
-  Pencil,
-  Trash2,
-  AlertCircle,
-  ReceiptText,
-  RefreshCw,
-  Eye,
+  Plus, Search, Pencil, Trash2,
+  AlertCircle, ReceiptText, RefreshCw, Eye,
 } from 'lucide-react';
 
 import type { InvoiceWithDetails } from '../../../types/invoice.types';
 import { useInvoices } from '../../../hooks/useInvoices';
 import { InvoiceModal } from '../components/InvoiceModal';
 import type { InvoiceFormValues } from '../components/invoiceForm';
-import { tokenStore } from '../../../lib/axios';
+import { InvoicePreview } from '../components/InvoicePreview';
 
+
+
+
+// ─── Status config ────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<
   InvoiceWithDetails['status'],
-  { label: string; dot: string; pill: string }
+  { label: string; pill: string }
 > = {
-  draft: {
-    label: 'Draft',
-    dot: 'bg-slate-400',
-    pill: 'bg-slate-100 text-slate-600 border-slate-200',
-  },
-  sent: {
-    label: 'Sent',
-    dot: 'bg-blue-500',
-    pill: 'bg-blue-50 text-blue-600 border-blue-200',
-  },
-  paid: {
-    label: 'Paid',
-    dot: 'bg-emerald-500',
-    pill: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-  },
-  overdue: {
-    label: 'Overdue',
-    dot: 'bg-red-500',
-    pill: 'bg-red-50 text-red-600 border-red-200',
-  },
+  draft: { label: 'Draft', pill: 'bg-slate-100 text-slate-600 border-slate-200' },
+  sent: { label: 'Sent', pill: 'bg-blue-50 text-blue-600 border-blue-200' },
+  paid: { label: 'Paid', pill: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
+  overdue: { label: 'Overdue', pill: 'bg-red-50 text-red-600 border-red-200' },
 };
 
-// ─── Delete Modal ─────────────────────────────────────────────────────────────
+// ─── Delete confirm modal ─────────────────────────────────────────────────────
 
 const DeleteConfirm = ({ invoice, onConfirm, onCancel, isDeleting }: any) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -52,22 +36,12 @@ const DeleteConfirm = ({ invoice, onConfirm, onCancel, isDeleting }: any) => (
       <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-red-50">
         <AlertCircle size={18} className="text-red-500" />
       </div>
-
-      <h3 className="text-sm font-semibold text-slate-900">
-        Delete this invoice?
-      </h3>
-
+      <h3 className="text-sm font-semibold text-slate-900">Delete this invoice?</h3>
       <p className="mt-1.5 text-xs text-slate-500">
-        Invoice <span className="font-semibold text-slate-700">
-          {invoice.invoice_number}
-        </span> will be permanently removed.
+        Invoice <span className="font-semibold text-slate-700">{invoice.invoice_number}</span> will be permanently removed.
       </p>
-
       <div className="mt-5 flex justify-end gap-2">
-        <button
-          onClick={onCancel}
-          className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900"
-        >
+        <button onClick={onCancel} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
           Cancel
         </button>
         <button
@@ -92,6 +66,7 @@ export const InvoicesPage = () => {
     createInvoice,
     updateInvoice,
     deleteInvoice,
+    getInvoiceById,
     refresh,
   } = useInvoices();
 
@@ -99,13 +74,18 @@ export const InvoicesPage = () => {
   const [editingInvoice, setEditingInvoice] = useState<InvoiceWithDetails | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
+  // Delete modal
   const [deletingInvoice, setDeletingInvoice] = useState<InvoiceWithDetails | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Preview modal
+  const [previewInvoice, setPreviewInvoice] = useState<InvoiceWithDetails | null>(null);
+
+  // Search / filter
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] =
-    useState<InvoiceWithDetails['status'] | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<InvoiceWithDetails['status'] | 'all'>('all');
 
   // ─── Filtering ──────────────────────────────────────────────────────────────
 
@@ -116,10 +96,7 @@ export const InvoicesPage = () => {
         !q ||
         inv.invoice_number.toLowerCase().includes(q) ||
         inv.customer_name.toLowerCase().includes(q);
-
-      const matchesStatus =
-        statusFilter === 'all' || inv.status === statusFilter;
-
+      const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [invoices, query, statusFilter]);
@@ -128,11 +105,9 @@ export const InvoicesPage = () => {
 
   const stats = useMemo(() => ({
     total: invoices.length,
-    paid: invoices.filter(i => i.status === 'paid').length,
-    overdue: invoices.filter(i => i.status === 'overdue').length,
-    revenue: invoices
-      .filter(i => i.status === 'paid')
-      .reduce((s, i) => s + Number(i.grand_total), 0),
+    paid: invoices.filter((i) => i.status === 'paid').length,
+    overdue: invoices.filter((i) => i.status === 'overdue').length,
+    revenue: invoices.filter((i) => i.status === 'paid').reduce((s, i) => s + Number(i.grand_total), 0),
   }), [invoices]);
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
@@ -140,7 +115,6 @@ export const InvoicesPage = () => {
   const handleSubmit = async (data: InvoiceFormValues) => {
     setIsSubmitting(true);
     setSubmitError(null);
-
     try {
       if (editingInvoice) {
         await updateInvoice(editingInvoice.id, data);
@@ -166,24 +140,6 @@ export const InvoicesPage = () => {
     }
   };
 
-  const handleDownloadPdf = async (invoiceId: number, invoiceNumber: string) => {
-    const token = tokenStore.getAccessToken(); // wherever you store it
-    console.log(invoiceId, invoiceNumber);
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/invoices/${invoiceId}/pdf`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    if (!res.ok) throw new Error('Failed to fetch PDF');
-
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-
-    window.open(url, '_blank');
-
-    // Clean up the object URL after a short delay
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-  };
-
   // ─── UI ─────────────────────────────────────────────────────────────────────
 
   return (
@@ -205,10 +161,7 @@ export const InvoicesPage = () => {
           </div>
 
           <button
-            onClick={() => {
-              setEditingInvoice(null);
-              setModalOpen(true);
-            }}
+            onClick={() => { setEditingInvoice(null); setModalOpen(true); }}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-semibold hover:bg-blue-500"
           >
             <Plus size={14} />
@@ -216,7 +169,6 @@ export const InvoicesPage = () => {
           </button>
         </div>
 
-        {/* Error banner */}
         {error && (
           <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-600">
             <AlertCircle size={14} />
@@ -224,7 +176,6 @@ export const InvoicesPage = () => {
           </div>
         )}
 
-        {/* Stats */}
         <div className="mt-4 flex gap-3">
           <Stat label="Paid" value={stats.paid} />
           <Stat label="Overdue" value={stats.overdue} />
@@ -234,8 +185,6 @@ export const InvoicesPage = () => {
 
       {/* Toolbar */}
       <div className="flex items-center gap-3 px-8 py-4">
-
-        {/* Search */}
         <div className="relative max-w-xs w-full">
           <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
           <input
@@ -246,7 +195,6 @@ export const InvoicesPage = () => {
           />
         </div>
 
-        {/* Status filter */}
         <div className="flex gap-2">
           {(['all', 'draft', 'sent', 'paid', 'overdue'] as const).map((s) => (
             <button
@@ -262,11 +210,7 @@ export const InvoicesPage = () => {
           ))}
         </div>
 
-        {/* Refresh */}
-        <button
-          onClick={refresh}
-          className="p-2 rounded-lg hover:bg-slate-100"
-        >
+        <button onClick={refresh} className="p-2 rounded-lg hover:bg-slate-100">
           <RefreshCw size={14} />
         </button>
       </div>
@@ -275,23 +219,31 @@ export const InvoicesPage = () => {
       <div className="px-8 pb-6">
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="text-left px-5 py-3">Invoice #</th>
-                <th className="text-left px-5 py-3">Customer</th>
-                <th className="text-left px-5 py-3">Amount</th>
-                <th className="text-left px-5 py-3">Status</th>
-                <th className="text-right px-5 py-3" >Action </th>
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500">Invoice #</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500">Customer</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500">Amount</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500">Status</th>
+                <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map(inv => {
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-5 py-10 text-center text-xs text-slate-400">
+                    No invoices found
+                  </td>
+                </tr>
+              )}
+
+              {filtered.map((inv) => {
                 const cfg = STATUS_CONFIG[inv.status];
                 return (
-                  <tr key={inv.id} className="hover:bg-slate-50">
-                    <td className="px-5 py-3">{inv.invoice_number}</td>
-                    <td className="px-5 py-3">{inv.customer_name}</td>
-                    <td className="px-5 py-3">
+                  <tr key={inv.id} className="border-b border-slate-50 hover:bg-slate-50">
+                    <td className="px-5 py-3 font-medium text-slate-800">{inv.invoice_number}</td>
+                    <td className="px-5 py-3 text-slate-600">{inv.customer_name}</td>
+                    <td className="px-5 py-3 text-slate-800">
                       {inv.currency_code} {Number(inv.grand_total).toFixed(2)}
                     </td>
                     <td className="px-5 py-3">
@@ -301,28 +253,39 @@ export const InvoicesPage = () => {
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => handleDownloadPdf(inv.id, inv.invoice_number)}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition-colors"
-                          title="View PDF"
+
+                        {/* Preview & Print */}
+                        <ActionBtn
+                          title="Preview & Print"
+                          onClick={async () => {
+                            setPreviewLoading(true);
+                            try {
+                              const fullInvoice = await getInvoiceById(inv.id);
+
+                              if (fullInvoice) {
+                                setPreviewInvoice(fullInvoice); // 🔥 THIS feeds data to preview
+                              }
+                            } finally {
+                              setPreviewLoading(false);
+                            }
+                          }}
                         >
-                          <Eye size={13} />
-                          <span className="text-xs font-medium">PDF</span>
-                        </button>
-                        <button
-                          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-                          onClick={() => { setEditingInvoice(inv); setModalOpen(true); }}
+                          <Eye size={14} />
+                        </ActionBtn>
+
+                        {/* Edit */}
+                        <ActionBtn
                           title="Edit"
+                          onClick={() => { setEditingInvoice(inv); setModalOpen(true); }}
                         >
-                          <Pencil size={13} />
-                        </button>
-                        <button
-                          className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors"
-                          onClick={() => setDeletingInvoice(inv)}
-                          title="Delete"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                          <Pencil size={14} />
+                        </ActionBtn>
+
+                        {/* Delete */}
+                        <ActionBtn title="Delete" danger onClick={() => setDeletingInvoice(inv)}>
+                          <Trash2 size={14} />
+                        </ActionBtn>
+
                       </div>
                     </td>
                   </tr>
@@ -333,7 +296,16 @@ export const InvoicesPage = () => {
         </div>
       </div>
 
-      {/* Modals */}
+      {/* ── Modals ── */}
+
+      {previewLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
+          <div className="bg-white px-4 py-2 rounded-lg text-sm shadow">
+            Loading invoice...
+          </div>
+        </div>
+      )}
+
       <InvoiceModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -351,14 +323,44 @@ export const InvoicesPage = () => {
           isDeleting={isDeleting}
         />
       )}
+
+      {/* Invoice preview/print modal */}
+      {previewInvoice && (
+        <InvoicePreview
+          invoice={previewInvoice}
+          onClose={() => setPreviewInvoice(null)}
+        />
+      )}
+
     </div>
   );
 };
 
-// Stat component
+// ─── Mini components ──────────────────────────────────────────────────────────
+
 const Stat = ({ label, value }: { label: string; value: any }) => (
   <div className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs">
     <span className="text-slate-500">{label}: </span>
     <span className="font-semibold text-slate-900">{value}</span>
   </div>
+);
+
+const ActionBtn = ({
+  children, onClick, title, danger = false,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  title?: string;
+  danger?: boolean;
+}) => (
+  <button
+    onClick={onClick}
+    title={title}
+    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition-colors ${danger
+      ? 'text-slate-400 hover:bg-red-50 hover:text-red-500'
+      : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
+      }`}
+  >
+    {children}
+  </button>
 );
